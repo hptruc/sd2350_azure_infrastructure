@@ -1,0 +1,89 @@
+trigger: none
+
+variables:
+  vmImage: ubuntu-latest
+  aksConnectionName: 'AKS connection'
+  aksNamespace: 'aks-ns'
+  databaseManifestPath: $(System.DefaultWorkingDirectory)/k8s manifests/msa_mongo_database/mongodb.yaml
+  frontendManifestPath: $(System.DefaultWorkingDirectory)/k8s manifests/msa_frontend/frontend.yaml
+  backendManifestPath:  $(System.DefaultWorkingDirectory)/k8s manifests/msa_backend/backend.yaml
+  ingressManifestPath:  $(System.DefaultWorkingDirectory)/k8s manifests/ingress/ingress.yml
+  ingressNginxManifestPath: $(System.DefaultWorkingDirectory)/k8s manifests/ingress/ingressNginx.yaml
+  ingressNginxNamespace: 'ingress-nginx'
+
+pool:
+  vmImage: $(vmImage)
+  
+stages:
+- stage: DeployMSASource
+  displayName: Deploy MSA source
+  pool:
+    vmImage: $(vmImage)
+  jobs:
+  - job: DeployDatabase
+    displayName: Deploy Database
+    steps:
+      - task: KubernetesManifest@0
+        displayName: Deploy
+        inputs:
+          action: deploy
+          kubernetesServiceConnection: $(aksConnectionName)
+          namespace: $(aksNamespace)
+          manifests: $(databaseManifestPath)
+
+  - job: DeployFrontend
+    displayName: Deploy Frontend
+    steps:
+      - task: KubernetesManifest@0
+        displayName: Deploy
+        inputs:
+          action: deploy
+          kubernetesServiceConnection: $(aksConnectionName)
+          namespace: $(aksNamespace)
+          manifests: $(frontendManifestPath)
+
+  - job: DeployBackend
+    displayName: Deploy Backend
+    steps:
+      - task: KubernetesManifest@0
+        displayName: Deploy
+        inputs:
+          action: deploy
+          kubernetesServiceConnection: $(aksConnectionName)
+          namespace: $(aksNamespace)
+          manifests: $(backendManifestPath)
+          
+- stage: ApplicationIngress
+  displayName: Application Ingress
+  pool:
+    vmImage: $(vmImage)
+  jobs:
+  - job: IngressController
+    displayName: NGINX ingress controller
+    steps:
+      - task: KubernetesManifest@1
+        inputs:
+          action: 'deploy'
+          kubernetesServiceConnection: $(aksConnectionName)
+          namespace: $(ingressNginxNamespace)
+          manifests: $(ingressNginxManifestPath)
+  
+  - job: ApplicationIngressJob
+    displayName: Application Ingress
+    dependsOn: IngressController
+    steps:
+      - task: KubernetesManifest@1
+        inputs:
+          action: 'deploy'
+          kubernetesServiceConnection: $(aksConnectionName)
+          namespace: $(aksNamespace)
+          manifests: $(ingressManifestPath)
+      - task: Kubernetes@1
+        displayName: Get ingress address
+        inputs:
+          kubernetesServiceEndpoint: $(aksConnectionName)
+          namespace: $(aksNamespace)
+          command: 'get'
+          arguments: 'ingress -o wide'
+          outputFormat: 'none'
+          connectionType: 'Kubernetes Service Connection'
