@@ -27,7 +27,7 @@ spec:
     spec:
       containers:
         - name: backend
-          image: hptacr.azurecr.io/backend:190
+          image: hptacr.azurecr.io/backend:195
           imagePullPolicy: Always
           ports:
             - containerPort: 3000

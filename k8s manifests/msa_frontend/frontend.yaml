@@ -28,7 +28,7 @@ spec:
     spec:
       containers:
         - name: frontend
-          image: hptacr.azurecr.io/frontend:190
+          image: hptacr.azurecr.io/frontend:195
           imagePullPolicy: Always
           ports:
             - containerPort: 3000
